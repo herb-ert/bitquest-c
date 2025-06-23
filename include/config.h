@@ -1,0 +1,12 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define SCALE 3
+#define TILE_SIZE 16
+#define MAP_WIDTH 12
+#define MAP_HEIGHT 12
+
+#define SCREEN_WIDTH (TILE_SIZE * SCALE * MAP_WIDTH)
+#define SCREEN_HEIGHT (TILE_SIZE * SCALE * MAP_HEIGHT)
+
+#endif
