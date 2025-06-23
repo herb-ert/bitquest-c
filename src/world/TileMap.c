@@ -1,5 +1,4 @@
 #include <world/TileMap.h>
-#include <config.h>
 
 TileMap createTileMap(int width, int height) {
 	TileMap map;
