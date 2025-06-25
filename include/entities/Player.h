@@ -5,16 +5,14 @@
 #include <core/Sprite.h>
 
 typedef struct {
-	int x, y;
+	float x, y;
+	float speed;
 	Sprite sprite;
 } Player;
 
 Player createPlayer(SDL_Texture *texture, int startX, int startY);
-
-void movePlayer(Player *player, int dx, int dy, int mapWidth, int mapHeight);
-
-void updatePlayer(Player *player);
-
+void movePlayer(Player *player, float dx, float dy, float deltaTime);
+void updatePlayer(Player *player, float deltaTime);
 void renderPlayer(SDL_Renderer *renderer, const Player *player);
 
 #endif

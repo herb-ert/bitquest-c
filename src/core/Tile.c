@@ -2,7 +2,7 @@
 #include "config.h"
 
 Tile createTile(SDL_Texture *texture, bool hasVariants, bool hasAnimations, int variantCount,
-                int frameCount, int frameDuration) {
+								int frameCount, float frameDuration) {
 	int texW, texH;
 	SDL_QueryTexture(texture, NULL, NULL, &texW, &texH);
 
@@ -16,8 +16,8 @@ Tile createTile(SDL_Texture *texture, bool hasVariants, bool hasAnimations, int 
 	return tile;
 }
 
-void updateTile(Tile *tile) {
-	updateSprite(&tile->sprite);
+void updateTile(Tile *tile, float deltaTime) {
+	updateSprite(&tile->sprite, deltaTime);
 }
 
 void renderTile(SDL_Renderer *renderer, const Tile *tile, SDL_Rect dest) {

@@ -12,16 +12,16 @@ typedef struct {
 	int variantCount;
 	int variantIndex;
 
-	int frameCount;
-	int frameDuration;
+	int frameCount;        // total frames
+	float frameDuration;   // duration of one frame in seconds
 	int currentFrame;
-	Uint32 lastFrameTime;
+	float frameTimer;      // accumulates time between frames
 } Sprite;
 
-Sprite createSprite(SDL_Texture *texture, bool hasVariants, bool hasAnimations, int variantCount, int frameCount,
-                    int frameDuration);
+Sprite createSprite(SDL_Texture *texture, bool hasVariants, bool hasAnimations,
+										int variantCount, int frameCount, float frameDuration);
 
-void updateSprite(Sprite *sprite);
+void updateSprite(Sprite *sprite, float deltaTime);
 
 void renderSprite(SDL_Renderer *renderer, const Sprite *sprite, SDL_Rect dest);
 

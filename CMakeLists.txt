@@ -24,10 +24,6 @@ target_link_libraries(BitQuest mingw32 SDL2main SDL2 SDL2_image)
 add_custom_command(TARGET BitQuest POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
   "C:/msys64/mingw64/bin/SDL2.dll"
+  "C:/msys64/mingw64/bin/SDL2_image.dll"
   $<TARGET_FILE_DIR:BitQuest>
-)
-add_custom_command(TARGET BitQuest POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "C:/msys64/mingw64/bin/SDL2_image.dll"
-        $<TARGET_FILE_DIR:BitQuest>
 )

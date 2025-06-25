@@ -2,8 +2,8 @@
 #include "config.h"
 #include "stdlib.h"
 
-Sprite createSprite(SDL_Texture *texture, bool hasVariants, bool hasAnimations, int variantCount, int frameCount,
-                    int frameDuration) {
+Sprite createSprite(SDL_Texture *texture, bool hasVariants, bool hasAnimations,
+										int variantCount, int frameCount, float frameDuration) {
 	Sprite sprite;
 	sprite.texture = texture;
 
@@ -13,20 +13,21 @@ Sprite createSprite(SDL_Texture *texture, bool hasVariants, bool hasAnimations, 
 
 	sprite.hasAnimations = hasAnimations;
 	sprite.frameCount = hasAnimations ? frameCount : 0;
-	sprite.frameDuration = hasAnimations ? frameDuration : 0;
+	sprite.frameDuration = hasAnimations ? frameDuration : 0.0f;
 	sprite.currentFrame = 0;
-	sprite.lastFrameTime = SDL_GetTicks();
+	sprite.frameTimer = 0.0f;
 
 	return sprite;
 }
 
-void updateSprite(Sprite *sprite) {
-	if (!sprite->hasAnimations) return;
+void updateSprite(Sprite *sprite, float deltaTime) {
+	if (!sprite->hasAnimations || sprite->frameCount <= 1) return;
 
-	Uint32 now = SDL_GetTicks();
-	if (now - sprite->lastFrameTime >= (Uint32) sprite->frameDuration) {
+	sprite->frameTimer += deltaTime;
+
+	while (sprite->frameTimer >= sprite->frameDuration) {
+		sprite->frameTimer -= sprite->frameDuration;
 		sprite->currentFrame = (sprite->currentFrame + 1) % sprite->frameCount;
-		sprite->lastFrameTime = now;
 	}
 }
 

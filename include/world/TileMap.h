@@ -17,6 +17,6 @@ void destroyTileMap(TileMap *map);
 
 void renderTileMap(SDL_Renderer *renderer, TileMap *map);
 
-void updateTileMap(TileMap *map);
+void updateTileMap(TileMap *map, float deltaTime);
 
 #endif

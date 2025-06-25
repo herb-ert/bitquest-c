@@ -9,9 +9,9 @@ typedef struct {
 } Tile;
 
 Tile createTile(SDL_Texture *texture, bool hasVariants, bool hasAnimations, int variantCount,
-                int frameCount, int frameDuration);
+								int frameCount, float frameDuration); // <- float for seconds
 
-void updateTile(Tile *tile);
+void updateTile(Tile *tile, float deltaTime); // <- now takes deltaTime
 
 void renderTile(SDL_Renderer *renderer, const Tile *tile, SDL_Rect dest);
 

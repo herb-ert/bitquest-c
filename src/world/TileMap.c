@@ -19,11 +19,11 @@ void destroyTileMap(TileMap *map) {
 	}
 }
 
-void updateTileMap(TileMap *map) {
+void updateTileMap(TileMap *map, float deltaTime) {
 	for (int l = 0; l < map->layerCount; l++) {
 		for (int y = 0; y < map->height; y++) {
 			for (int x = 0; x < map->width; x++) {
-				updateTile(&map->layers[l].tiles[y][x]);
+				updateTile(&map->layers[l].tiles[y][x], deltaTime);
 			}
 		}
 	}
