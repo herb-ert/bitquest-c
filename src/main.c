@@ -7,6 +7,7 @@
 #include <config.h>
 #include <core/Input.h>
 #include <systems/Time.h>
+#include <systems/Daylight.h>
 
 int main(int argc, char *argv[]) {
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -155,6 +156,13 @@ int main(int argc, char *argv[]) {
 
 		renderTileMap(renderer, &map);
 		renderPlayer(renderer, &player);
+
+		SDL_Color tint = getTimeTintColor(&gameTime);
+		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(renderer, tint.r, tint.g, tint.b, tint.a);
+		SDL_Rect overlay = {0, 0, (TILE_SIZE * SCALE) * MAP_WIDTH,
+												(TILE_SIZE * SCALE) * MAP_HEIGHT};
+		SDL_RenderFillRect(renderer, &overlay);
 
 		SDL_RenderPresent(renderer);
 	}
