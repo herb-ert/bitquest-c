@@ -4,19 +4,20 @@
 #include <world/TileMapLayer.h>
 #include <world/TileLayer.h>
 
-typedef struct {
-	int width;
-	int height;
-	int layerCount;
-	TileMapLayer layers[LAYER_COUNT];
+typedef struct
+{
+  int width;
+  int height;
+  int layerCount;
+  TileMapLayer layers[LAYER_COUNT];
 } TileMap;
 
 TileMap createTileMap(int width, int height);
 
-void destroyTileMap(TileMap *map);
+void destroyTileMap(TileMap* map);
 
-void renderTileMap(SDL_Renderer *renderer, TileMap *map);
+void renderTileMap(SDL_Renderer* renderer, TileMap* map);
 
-void updateTileMap(TileMap *map, float deltaTime);
+void updateTileMap(TileMap* map, float deltaTime);
 
 #endif
