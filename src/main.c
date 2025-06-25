@@ -6,6 +6,7 @@
 #include <entities/Player.h>
 #include <config.h>
 #include <core/Input.h>
+#include <systems/Time.h>
 
 int main(int argc, char *argv[]) {
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -45,6 +46,7 @@ int main(int argc, char *argv[]) {
 	// Load textures
 	SDL_Texture *playerTex = IMG_LoadTexture(renderer, "../assets/player.png");
 	SDL_Texture *grassTex = IMG_LoadTexture(renderer, "../assets/tiles/grass.png");
+	SDL_Texture *bladesOfGrassTex = IMG_LoadTexture(renderer, "../assets/tiles/blades_of_grass.png");
 	SDL_Texture *groundTex = IMG_LoadTexture(renderer, "../assets/tiles/ground.png");
 	SDL_Texture *waterTex = IMG_LoadTexture(renderer, "../assets/tiles/water.png");
 	SDL_Texture *wallTex = IMG_LoadTexture(renderer, "../assets/tiles/wall.png");
@@ -61,32 +63,52 @@ int main(int argc, char *argv[]) {
 	}
 
 	Player player = createPlayer(playerTex, 1, 1);
-
-	Tile groundTile = createTile(groundTex, false, false, 0, 0, 0);
-	Tile wallTile = createTile(wallTex, false, false, 0, 0, 0);
-	Tile crateTile = createTile(crateTex, false, false, 0, 0, 0);
-	Tile signTile = createTile(signTex, false, false, 0, 0, 0);
-
 	TileMap map = createTileMap(MAP_WIDTH, MAP_HEIGHT);
 
 	for (int y = 0; y < MAP_HEIGHT; y++) {
 		for (int x = 0; x < MAP_WIDTH; x++) {
-			map.layers[LAYER_BACKGROUND].tiles[y][x] = createTile(grassTex, true, true, 0, 0, 0);
+			map.layers[LAYER_GROUND].tiles[y][x] = createTile(grassTex, false, false, 0, 0, 0.0f);
 		}
 	}
 
-	map.layers[LAYER_DECORATION].tiles[2][3] = crateTile;
-	map.layers[LAYER_DECORATION].tiles[3][4] = crateTile;
-	map.layers[LAYER_DECORATION].tiles[5][5] = signTile;
+	map.layers[LAYER_OBJECTS].tiles[2][3] = createTile(crateTex, false, false, 0, 0, 0.0f);
+	map.layers[LAYER_OBJECTS].tiles[3][4] = createTile(crateTex, false, false, 0, 0, 0.0f);
+	map.layers[LAYER_OBJECTS].tiles[5][5] = createTile(signTex, false, false, 0, 0, 0.0f);
 
 	for (int i = 6; i <= 8; i++) {
-		map.layers[LAYER_DECORATION].tiles[1][i] = createTile(waterTex, false, true, 0, 0, 500);
+		map.layers[LAYER_GROUND].tiles[1][i] = createTile(waterTex, false, true, 0, 0, 0.5f);
 	}
+
+	for (int y = 0; y < MAP_HEIGHT; y++) {
+		for (int x = 0; x < MAP_WIDTH; x++) {
+			Tile *groundTile = &map.layers[LAYER_GROUND].tiles[y][x];
+			if (groundTile->sprite.texture != grassTex)
+				continue;
+
+			bool occupied = false;
+			for (int l = 0; l < map.layerCount; l++) {
+				if (l == LAYER_GROUND) continue;
+				if (map.layers[l].tiles[y][x].sprite.texture != NULL) {
+					occupied = true;
+					break;
+				}
+			}
+			if (occupied) continue;
+
+			if ((rand() % 100) < 55) {
+				map.layers[LAYER_DECORATION].tiles[y][x] =
+					createTile(bladesOfGrassTex, true, false, 0, 0, 0.0f);
+			}
+		}
+	}
+
+	// Init time system
+	TimeSystem gameTime;
+	initTimeSystem(&gameTime, 1.0f / 60.0f);
 
 	InputState input;
 	resetInput(&input);
 
-	// Delta timing
 	Uint32 lastTime = SDL_GetTicks();
 	float deltaTime = 0.0f;
 
@@ -105,18 +127,28 @@ int main(int argc, char *argv[]) {
 		}
 
 		float dx = 0.0f, dy = 0.0f;
-
 		if (input.left && !input.right) dx = -1.0f;
 		else if (input.right && !input.left) dx = 1.0f;
-
 		if (input.up && !input.down) dy = -1.0f;
 		else if (input.down && !input.up) dy = 1.0f;
-
 		if (dx != 0.0f || dy != 0.0f) {
 			movePlayer(&player, dx, dy, deltaTime);
 		}
 
+		// Update systems
 		updateTileMap(&map, deltaTime);
+		updateTimeSystem(&gameTime, deltaTime);
+
+		// Log time for debug
+		char timeStr[16];
+		formatTime(&gameTime, timeStr, sizeof(timeStr));
+		SDL_Log("Time: %s | Day %d | Month %d | Year %d | State: %s",
+		        timeStr,
+		        gameTime.day,
+		        gameTime.month,
+		        gameTime.year,
+		        getTimeStateName(gameTime.state)
+		);
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
@@ -130,6 +162,7 @@ int main(int argc, char *argv[]) {
 	destroyTileMap(&map);
 
 	SDL_DestroyTexture(playerTex);
+	SDL_DestroyTexture(bladesOfGrassTex);
 	SDL_DestroyTexture(grassTex);
 	SDL_DestroyTexture(groundTex);
 	SDL_DestroyTexture(waterTex);

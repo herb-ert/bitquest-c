@@ -7,6 +7,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/include/core
   ${CMAKE_SOURCE_DIR}/include/world
   ${CMAKE_SOURCE_DIR}/include/entities
+  ${CMAKE_SOURCE_DIR}/include/systems
   "C:/msys64/mingw64/include/SDL2"
 )
 

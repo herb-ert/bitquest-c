@@ -2,8 +2,9 @@
 #define TILELAYER_H
 
 typedef enum {
-	LAYER_BACKGROUND = 0,
+	LAYER_GROUND = 0,
 	LAYER_DECORATION,
+	LAYER_OBJECTS,
 	LAYER_COUNT
 } TileLayer;
 

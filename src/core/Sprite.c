@@ -3,7 +3,7 @@
 #include "stdlib.h"
 
 Sprite createSprite(SDL_Texture *texture, bool hasVariants, bool hasAnimations,
-										int variantCount, int frameCount, float frameDuration) {
+                    int variantCount, int frameCount, float frameDuration) {
 	Sprite sprite;
 	sprite.texture = texture;
 
