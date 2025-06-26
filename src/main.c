@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <stdio.h>
+#include <stdlib.h> // for rand()
 #include <core/Tile.h>
 #include <world/TileMap.h>
 #include <entities/Player.h>
@@ -8,6 +9,7 @@
 #include <core/Input.h>
 #include <systems/Time.h>
 #include <systems/Daylight.h>
+#include <core/AssetManager.h>
 
 int main(int argc, char* argv[])
 {
@@ -53,21 +55,27 @@ int main(int argc, char* argv[])
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-  // Load textures
-  SDL_Texture* playerTex = IMG_LoadTexture(renderer, "../assets/player.png");
-  SDL_Texture* grassTex = IMG_LoadTexture(renderer, "../assets/tiles/grass.png");
-  SDL_Texture* bladesOfGrassTex = IMG_LoadTexture(renderer, "../assets/tiles/blades_of_grass.png");
-  SDL_Texture* groundTex = IMG_LoadTexture(renderer, "../assets/tiles/ground.png");
-  SDL_Texture* waterTex = IMG_LoadTexture(renderer, "../assets/tiles/water.png");
-  SDL_Texture* wallTex = IMG_LoadTexture(renderer, "../assets/tiles/wall.png");
-  SDL_Texture* crateTex = IMG_LoadTexture(renderer, "../assets/tiles/crate.png");
-  SDL_Texture* signTex = IMG_LoadTexture(renderer, "../assets/tiles/sign.png");
-  SDL_Texture* chestTex = IMG_LoadTexture(renderer, "../assets/tiles/chest.png");
-  SDL_Texture* planksTex = IMG_LoadTexture(renderer, "../assets/tiles/planks.png");
+  // Initialize Asset Manager
+  AssetManager assets;
+  initAssetManager(&assets, renderer);
 
-  if (!grassTex || !groundTex || !waterTex || !wallTex || !crateTex || !signTex || !chestTex || !planksTex || !playerTex)
+  // Load textures via AssetManager
+  SDL_Texture* playerTex = loadTexture(&assets, "player", "../assets/player.png");
+  SDL_Texture* grassTex = loadTexture(&assets, "grass", "../assets/tiles/grass.png");
+  SDL_Texture* bladesOfGrassTex = loadTexture(&assets, "blades_of_grass", "../assets/tiles/blades_of_grass.png");
+  SDL_Texture* groundTex = loadTexture(&assets, "ground", "../assets/tiles/ground.png");
+  SDL_Texture* waterTex = loadTexture(&assets, "water", "../assets/tiles/water.png");
+  SDL_Texture* wallTex = loadTexture(&assets, "wall", "../assets/tiles/wall.png");
+  SDL_Texture* crateTex = loadTexture(&assets, "crate", "../assets/tiles/crate.png");
+  SDL_Texture* signTex = loadTexture(&assets, "sign", "../assets/tiles/sign.png");
+  SDL_Texture* chestTex = loadTexture(&assets, "chest", "../assets/tiles/chest.png");
+  SDL_Texture* planksTex = loadTexture(&assets, "planks", "../assets/tiles/planks.png");
+
+  if (!playerTex || !grassTex || !bladesOfGrassTex || !groundTex || !waterTex ||
+    !wallTex || !crateTex || !signTex || !chestTex || !planksTex)
   {
-    printf("Failed to load one or more textures: %s\n", IMG_GetError());
+    printf("Exiting due to texture load failure(s).\n");
+    destroyAssetManager(&assets);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     IMG_Quit();
@@ -89,7 +97,7 @@ int main(int argc, char* argv[])
   map.layers[LAYER_OBJECTS].tiles[2][3] = createTile(crateTex, false, false, 0, 0, 0.0f);
   map.layers[LAYER_OBJECTS].tiles[3][4] = createTile(crateTex, false, false, 0, 0, 0.0f);
   map.layers[LAYER_OBJECTS].tiles[5][5] = createTile(signTex, false, false, 0, 0, 0.0f);
-  map.layers[LAYER_OBJECTS].tiles[6][6] = createTile(chestTex, false, false, 0, 0, 0.0f);
+  map.layers[LAYER_OBJECTS].tiles[6][6] = createTile(chestTex, false, true, 0, 0, 0.15f);
 
   for (int i = 6; i <= 8; i++)
   {
@@ -127,7 +135,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  // Init time system
   TimeSystem gameTime;
   initTimeSystem(&gameTime, 1.0f);
 
@@ -167,7 +174,6 @@ int main(int argc, char* argv[])
     updateTileMap(&map, deltaTime);
     updateTimeSystem(&gameTime, deltaTime);
 
-    // Log time for debug
     char timeStr[16];
     formatTime(&gameTime, timeStr, sizeof(timeStr));
     SDL_Log("Time: %s | Day %d | Month %d | Year %d | State: %s",
@@ -175,18 +181,16 @@ int main(int argc, char* argv[])
             gameTime.day,
             gameTime.month,
             gameTime.year,
-            getTimeStateName(gameTime.state)
-    );
+            getTimeStateName(gameTime.state));
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // ----------- Y-SORTED RENDERING --------------
-    int playerRow = (int)(player.y + 1); // Player's feet tile row
+    int playerRow = (int)(player.y + 1);
+    if (playerRow >= MAP_HEIGHT) playerRow = MAP_HEIGHT - 1;
 
     for (int y = 0; y < MAP_HEIGHT; y++)
     {
-      // Draw ground + decoration layers for this row
       for (int x = 0; x < MAP_WIDTH; x++)
       {
         SDL_Rect dest = {
@@ -204,13 +208,11 @@ int main(int argc, char* argv[])
         }
       }
 
-      // Draw player if this is player's feet row
       if (y == playerRow)
       {
         renderPlayer(renderer, &player);
       }
 
-      // Draw objects and walls layers for this row
       for (int x = 0; x < MAP_WIDTH; x++)
       {
         SDL_Rect dest = {
@@ -228,9 +230,7 @@ int main(int argc, char* argv[])
         }
       }
     }
-    // ----------- End Y-SORTED RENDERING -------------
 
-    // Day-night overlay
     SDL_Color tint = getTimeTintColor(&gameTime);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, tint.r, tint.g, tint.b, tint.a);
@@ -245,17 +245,7 @@ int main(int argc, char* argv[])
   }
 
   destroyTileMap(&map);
-
-  SDL_DestroyTexture(playerTex);
-  SDL_DestroyTexture(bladesOfGrassTex);
-  SDL_DestroyTexture(grassTex);
-  SDL_DestroyTexture(groundTex);
-  SDL_DestroyTexture(waterTex);
-  SDL_DestroyTexture(wallTex);
-  SDL_DestroyTexture(crateTex);
-  SDL_DestroyTexture(signTex);
-  SDL_DestroyTexture(chestTex);
-  SDL_DestroyTexture(planksTex);
+  destroyAssetManager(&assets);
 
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
