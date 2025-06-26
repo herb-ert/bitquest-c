@@ -4,7 +4,7 @@
 
 void initTimeSystem(TimeSystem* ts, float speed)
 {
-  ts->time = 6.0f; // start at 6 AM
+  ts->time = 10.0f; // start at 6 AM
   ts->day = 1;
   ts->month = 1;
   ts->year = 1;

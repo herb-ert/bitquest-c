@@ -1,8 +1,9 @@
 #include <core/Tile.h>
 #include "config.h"
+#include <CollisionBox.h>
 
 Tile createTile(SDL_Texture* texture, bool hasVariants, bool hasAnimations, int variantCount,
-                int frameCount, float frameDuration)
+                int frameCount, float frameDuration, CollisionBox collisionBox)
 {
   int texW, texH;
   SDL_QueryTexture(texture, NULL, NULL, &texW, &texH);
@@ -13,7 +14,10 @@ Tile createTile(SDL_Texture* texture, bool hasVariants, bool hasAnimations, int 
     frameCount = texH / TILE_SIZE;
 
   Sprite sprite = createSprite(texture, hasVariants, hasAnimations, variantCount, frameCount, frameDuration);
-  Tile tile = {.sprite = sprite};
+  Tile tile = {
+    .sprite = sprite,
+    .collisionBox = collisionBox
+  };
   return tile;
 }
 
@@ -25,4 +29,9 @@ void updateTile(Tile* tile, float deltaTime)
 void renderTile(SDL_Renderer* renderer, const Tile* tile, SDL_Rect dest)
 {
   renderSprite(renderer, &tile->sprite, dest);
+
+  float worldX = dest.x / (float)(TILE_SIZE * SCALE);
+  float worldY = dest.y / (float)(TILE_SIZE * SCALE);
+
+  renderCollisionBox(renderer, worldX, worldY, tile->collisionBox);
 }

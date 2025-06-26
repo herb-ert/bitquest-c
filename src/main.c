@@ -1,7 +1,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <stdio.h>
-#include <stdlib.h> // for rand()
+#include <stdlib.h>
 #include <core/Tile.h>
 #include <world/TileMap.h>
 #include <entities/Player.h>
@@ -55,11 +55,10 @@ int main(int argc, char* argv[])
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-  // Initialize Asset Manager
+  // Asset manager
   AssetManager assets;
   initAssetManager(&assets, renderer);
 
-  // Load textures via AssetManager
   SDL_Texture* playerTex = loadTexture(&assets, "player", "../assets/player.png");
   SDL_Texture* grassTex = loadTexture(&assets, "grass", "../assets/tiles/grass.png");
   SDL_Texture* bladesOfGrassTex = loadTexture(&assets, "blades_of_grass", "../assets/tiles/blades_of_grass.png");
@@ -83,32 +82,42 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  // Collision boxes
+#define FULL_COLLISION (CollisionBox){0, 0, 1, 1}
+#define NO_COLLISION   (CollisionBox){0, 0, 0, 0}
+#define HALF_BOTTOM    (CollisionBox){0, 0.5f, 1, 0.5f}
+
   Player player = createPlayer(playerTex, 1, 1);
   TileMap map = createTileMap(MAP_WIDTH, MAP_HEIGHT);
 
+  // Fill ground layer
   for (int y = 0; y < MAP_HEIGHT; y++)
   {
     for (int x = 0; x < MAP_WIDTH; x++)
     {
-      map.layers[LAYER_GROUND].tiles[y][x] = createTile(grassTex, false, false, 0, 0, 0.0f);
+      map.layers[LAYER_GROUND].tiles[y][x] = createTile(grassTex, false, false, 0, 0, 0.0f, NO_COLLISION);
     }
   }
 
-  map.layers[LAYER_OBJECTS].tiles[2][3] = createTile(crateTex, false, false, 0, 0, 0.0f);
-  map.layers[LAYER_OBJECTS].tiles[3][4] = createTile(crateTex, false, false, 0, 0, 0.0f);
-  map.layers[LAYER_OBJECTS].tiles[5][5] = createTile(signTex, false, false, 0, 0, 0.0f);
-  map.layers[LAYER_OBJECTS].tiles[6][6] = createTile(chestTex, false, true, 0, 0, 0.15f);
+  // Object tiles with collisions
+  map.layers[LAYER_OBJECTS].tiles[6][4] = createTile(crateTex, false, false, 0, 0, 0.0f, FULL_COLLISION);
+  map.layers[LAYER_OBJECTS].tiles[6][5] = createTile(crateTex, false, false, 0, 0, 0.0f, FULL_COLLISION);
+  map.layers[LAYER_OBJECTS].tiles[8][5] = createTile(signTex, false, false, 0, 0, 0.0f, HALF_BOTTOM);
+  map.layers[LAYER_OBJECTS].tiles[6][6] = createTile(chestTex, false, true, 0, 0, 0.15f, FULL_COLLISION);
 
+  // Water with full collision
   for (int i = 6; i <= 8; i++)
   {
-    map.layers[LAYER_GROUND].tiles[1][i] = createTile(waterTex, false, true, 0, 0, 0.5f);
+    map.layers[LAYER_GROUND].tiles[1][i] = createTile(waterTex, false, true, 0, 0, 0.5f, FULL_COLLISION);
   }
 
+  // Planks - walkable
   for (int i = 0; i <= 8; i++)
   {
-    map.layers[LAYER_GROUND].tiles[3][i] = createTile(planksTex, false, false, 0, 0, 0);
+    map.layers[LAYER_GROUND].tiles[3][i] = createTile(planksTex, false, false, 0, 0, 0.0f, NO_COLLISION);
   }
 
+  // Add blades of grass as decoration (non-collidable)
   for (int y = 0; y < MAP_HEIGHT; y++)
   {
     for (int x = 0; x < MAP_WIDTH; x++)
@@ -130,13 +139,14 @@ int main(int argc, char* argv[])
 
       if ((rand() % 100) < 55)
       {
-        map.layers[LAYER_DECORATION].tiles[y][x] = createTile(bladesOfGrassTex, true, false, 0, 0, 0.0f);
+        map.layers[LAYER_DECORATION].tiles[y][x] = createTile(bladesOfGrassTex, true, false, 0, 0, 0.0f, NO_COLLISION);
       }
     }
   }
 
+  // Time & input
   TimeSystem gameTime;
-  initTimeSystem(&gameTime, 1.0f);
+  initTimeSystem(&gameTime, 1.0f / 60.0f);
 
   InputState input;
   resetInput(&input);
@@ -168,20 +178,12 @@ int main(int argc, char* argv[])
     else if (input.right && !input.left) dx = 1.0f;
     if (input.up && !input.down) dy = -1.0f;
     else if (input.down && !input.up) dy = 1.0f;
+
     if (dx != 0.0f || dy != 0.0f)
-      movePlayer(&player, dx, dy, deltaTime);
+      movePlayer(&player, &map, dx, dy, deltaTime);
 
     updateTileMap(&map, deltaTime);
     updateTimeSystem(&gameTime, deltaTime);
-
-    char timeStr[16];
-    formatTime(&gameTime, timeStr, sizeof(timeStr));
-    SDL_Log("Time: %s | Day %d | Month %d | Year %d | State: %s",
-            timeStr,
-            gameTime.day,
-            gameTime.month,
-            gameTime.year,
-            getTimeStateName(gameTime.state));
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
@@ -231,6 +233,7 @@ int main(int argc, char* argv[])
       }
     }
 
+    // Time tint overlay
     SDL_Color tint = getTimeTintColor(&gameTime);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, tint.r, tint.g, tint.b, tint.a);
@@ -246,7 +249,6 @@ int main(int argc, char* argv[])
 
   destroyTileMap(&map);
   destroyAssetManager(&assets);
-
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   IMG_Quit();
