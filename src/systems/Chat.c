@@ -3,6 +3,8 @@
 #include <SDL_ttf.h>
 #include "systems/Chat.h"
 
+#define CHAT_BG_COLOR (SDL_Color){0, 0, 0, 80}
+
 void initChat(Chat* chat)
 {
     chat->count = 0;
@@ -52,27 +54,53 @@ void submitChatMessage(Chat* chat)
 void renderChatMessages(Chat* chat, SDL_Renderer* renderer, TTF_Font* font, int screenHeight)
 {
     SDL_Color white = {255, 255, 255, 255};
-    int baseY = screenHeight - 20;
+    int baseY = screenHeight - 40;
+
+    // Precompute max width for consistent background sizing
+    char widestLine[MAX_MESSAGE_LENGTH + 1];
+    memset(widestLine, 'W', MAX_MESSAGE_LENGTH);
+    widestLine[MAX_MESSAGE_LENGTH] = '\0';
+
+    int maxWidth = 0, maxHeight = 0;
+    TTF_SizeText(font, widestLine, &maxWidth, &maxHeight);
 
     for (int i = chat->count - 1; i >= 0 && i >= chat->count - 6; --i)
     {
         SDL_Surface* surf = TTF_RenderText_Blended(font, chat->messages[i].text, white);
         SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-        SDL_Rect dst = {10, baseY, surf->w, surf->h};
-        SDL_RenderCopy(renderer, tex, NULL, &dst);
-        baseY -= surf->h + 2;
+
+        SDL_Rect bg = {10, baseY, maxWidth, surf->h};
+
+        // Draw background
+        SDL_SetRenderDrawColor(renderer, CHAT_BG_COLOR.r, CHAT_BG_COLOR.g, CHAT_BG_COLOR.b, CHAT_BG_COLOR.a);
+        SDL_RenderFillRect(renderer, &bg);
+
+        // Draw text
+        SDL_Rect textDst = {10, baseY, surf->w, surf->h};
+        SDL_RenderCopy(renderer, tex, NULL, &textDst);
+
+        baseY -= surf->h;
+
         SDL_FreeSurface(surf);
         SDL_DestroyTexture(tex);
     }
 
     if (chat->active)
     {
-        char buffer[MAX_MESSAGE_LENGTH + 2];
-        snprintf(buffer, sizeof(buffer), "> %s", chat->currentInput);
+        char buffer[MAX_MESSAGE_LENGTH + 3];
+        snprintf(buffer, sizeof(buffer), ">%s", chat->currentInput);
+
         SDL_Surface* inputSurf = TTF_RenderText_Blended(font, buffer, white);
         SDL_Texture* inputTex = SDL_CreateTextureFromSurface(renderer, inputSurf);
-        SDL_Rect dst = {10, screenHeight - 20, inputSurf->w, inputSurf->h};
-        SDL_RenderCopy(renderer, inputTex, NULL, &dst);
+
+        SDL_Rect bg = {10, screenHeight - 20, maxWidth, inputSurf->h};
+
+        SDL_SetRenderDrawColor(renderer, CHAT_BG_COLOR.r, CHAT_BG_COLOR.g, CHAT_BG_COLOR.b, CHAT_BG_COLOR.a);
+        SDL_RenderFillRect(renderer, &bg);
+
+        SDL_Rect textDst = {10, screenHeight - 20, inputSurf->w, inputSurf->h};
+        SDL_RenderCopy(renderer, inputTex, NULL, &textDst);
+
         SDL_FreeSurface(inputSurf);
         SDL_DestroyTexture(inputTex);
     }
