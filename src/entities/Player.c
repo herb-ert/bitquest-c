@@ -6,7 +6,7 @@
 
 #define PLAYER_WIDTH  1.0f
 #define PLAYER_HEIGHT 1.0f
-#define PLAYER_COLLISION_BOX (CollisionBox){0.0f, 0.5f, 1.0f, 0.5f}
+#define PLAYER_COLLISION_BOX (CollisionBox){0.1f, 0.5f, 0.8f, 0.5f}
 
 Player createPlayer(SDL_Texture* texture, int startX, int startY)
 {

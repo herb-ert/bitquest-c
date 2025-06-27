@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <SDL_image.h>
+#include <SDL_ttf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <core/Tile.h>
@@ -10,6 +11,7 @@
 #include <systems/Time.h>
 #include <systems/Daylight.h>
 #include <core/AssetManager.h>
+#include <systems/Chat.h>
 
 int main(int argc, char* argv[])
 {
@@ -22,6 +24,24 @@ int main(int argc, char* argv[])
   if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG))
   {
     printf("SDL_image Init Error: %s\n", IMG_GetError());
+    SDL_Quit();
+    return 1;
+  }
+
+  if (TTF_Init() == -1)
+  {
+    printf("TTF Init Error: %s\n", TTF_GetError());
+    IMG_Quit();
+    SDL_Quit();
+    return 1;
+  }
+
+  TTF_Font* font = TTF_OpenFont("../assets/fonts/slkscre.ttf", 14);
+  if (!font)
+  {
+    printf("Failed to load font: %s\n", TTF_GetError());
+    TTF_Quit();
+    IMG_Quit();
     SDL_Quit();
     return 1;
   }
@@ -55,7 +75,6 @@ int main(int argc, char* argv[])
 
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-  // Asset manager
   AssetManager assets;
   initAssetManager(&assets, renderer);
 
@@ -82,7 +101,6 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  // Collision boxes
 #define FULL_COLLISION (CollisionBox){0, 0, 1, 1}
 #define NO_COLLISION   (CollisionBox){0, 0, 0, 0}
 #define HALF_BOTTOM    (CollisionBox){0, 0.5f, 1, 0.5f}
@@ -90,7 +108,6 @@ int main(int argc, char* argv[])
   Player player = createPlayer(playerTex, 1, 1);
   TileMap map = createTileMap(MAP_WIDTH, MAP_HEIGHT);
 
-  // Fill ground layer
   for (int y = 0; y < MAP_HEIGHT; y++)
   {
     for (int x = 0; x < MAP_WIDTH; x++)
@@ -99,25 +116,20 @@ int main(int argc, char* argv[])
     }
   }
 
-  // Object tiles with collisions
   map.layers[LAYER_OBJECTS].tiles[6][4] = createTile(crateTex, false, false, 0, 0, 0.0f, FULL_COLLISION);
-  map.layers[LAYER_OBJECTS].tiles[6][5] = createTile(crateTex, false, false, 0, 0, 0.0f, FULL_COLLISION);
   map.layers[LAYER_OBJECTS].tiles[8][5] = createTile(signTex, false, false, 0, 0, 0.0f, HALF_BOTTOM);
   map.layers[LAYER_OBJECTS].tiles[6][6] = createTile(chestTex, false, true, 0, 0, 0.15f, FULL_COLLISION);
 
-  // Water with full collision
   for (int i = 6; i <= 8; i++)
   {
     map.layers[LAYER_GROUND].tiles[1][i] = createTile(waterTex, false, true, 0, 0, 0.5f, FULL_COLLISION);
   }
 
-  // Planks - walkable
   for (int i = 0; i <= 8; i++)
   {
     map.layers[LAYER_GROUND].tiles[3][i] = createTile(planksTex, false, false, 0, 0, 0.0f, NO_COLLISION);
   }
 
-  // Add blades of grass as decoration (non-collidable)
   for (int y = 0; y < MAP_HEIGHT; y++)
   {
     for (int x = 0; x < MAP_WIDTH; x++)
@@ -144,12 +156,15 @@ int main(int argc, char* argv[])
     }
   }
 
-  // Time & input
   TimeSystem gameTime;
   initTimeSystem(&gameTime, 1.0f / 60.0f);
 
   InputState input;
   resetInput(&input);
+
+  Chat chat;
+  initChat(&chat);
+  SDL_StartTextInput();
 
   Uint32 lastTime = SDL_GetTicks();
   float deltaTime = 0.0f;
@@ -171,13 +186,36 @@ int main(int argc, char* argv[])
         handleKeyDown(&input, e.key.keysym.sym);
       else if (e.type == SDL_KEYUP)
         handleKeyUp(&input, e.key.keysym.sym);
+
+      if (chat.active)
+      {
+        handleChatEvent(&chat, &e);
+      }
+      else
+      {
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_RETURN)
+        {
+          chat.active = true;
+        }
+        else if (e.type == SDL_KEYDOWN)
+        {
+          handleKeyDown(&input, e.key.keysym.sym);
+        }
+        else if (e.type == SDL_KEYUP)
+        {
+          handleKeyUp(&input, e.key.keysym.sym);
+        }
+      }
     }
 
     float dx = 0.0f, dy = 0.0f;
-    if (input.left && !input.right) dx = -1.0f;
-    else if (input.right && !input.left) dx = 1.0f;
-    if (input.up && !input.down) dy = -1.0f;
-    else if (input.down && !input.up) dy = 1.0f;
+    if (!chat.active)
+    {
+      if (input.left && !input.right) dx = -1.0f;
+      else if (input.right && !input.left) dx = 1.0f;
+      if (input.up && !input.down) dy = -1.0f;
+      else if (input.down && !input.up) dy = 1.0f;
+    }
 
     if (dx != 0.0f || dy != 0.0f)
       movePlayer(&player, &map, dx, dy, deltaTime);
@@ -188,8 +226,13 @@ int main(int argc, char* argv[])
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    int playerRow = (int)(player.y + 1);
-    if (playerRow >= MAP_HEIGHT) playerRow = MAP_HEIGHT - 1;
+    // Calculate collision box row bounds
+    float colY = player.y + player.collisionBox.y - 0.5f;
+    float colH = player.collisionBox.h;
+    int playerRowStart = (int)floorf(colY);
+    int playerRowEnd = (int)floorf(colY + colH);
+    if (playerRowStart < 0) playerRowStart = 0;
+    if (playerRowEnd >= MAP_HEIGHT) playerRowEnd = MAP_HEIGHT - 1;
 
     for (int y = 0; y < MAP_HEIGHT; y++)
     {
@@ -210,7 +253,7 @@ int main(int argc, char* argv[])
         }
       }
 
-      if (y == playerRow)
+      if (y >= playerRowStart && y <= playerRowEnd)
       {
         renderPlayer(renderer, &player);
       }
@@ -233,7 +276,6 @@ int main(int argc, char* argv[])
       }
     }
 
-    // Time tint overlay
     SDL_Color tint = getTimeTintColor(&gameTime);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, tint.r, tint.g, tint.b, tint.a);
@@ -244,6 +286,8 @@ int main(int argc, char* argv[])
     };
     SDL_RenderFillRect(renderer, &overlay);
 
+    renderChatMessages(&chat, renderer, font, TILE_SIZE * SCALE * MAP_HEIGHT);
+
     SDL_RenderPresent(renderer);
   }
 
@@ -251,6 +295,9 @@ int main(int argc, char* argv[])
   destroyAssetManager(&assets);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
+  TTF_CloseFont(font);
+  TTF_Quit();
+  SDL_StopTextInput();
   IMG_Quit();
   SDL_Quit();
 
