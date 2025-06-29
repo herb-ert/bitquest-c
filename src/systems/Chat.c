@@ -13,8 +13,8 @@
 #define CHAT_MARGIN_Y 10
 #define MAX_VISIBLE_MESSAGES 6
 
-#define CURSOR_BLINK_INTERVAL 500       // ms
-#define CHAT_HIDE_DELAY_MS 10000        // ms before auto-hiding if not active
+#define CURSOR_BLINK_INTERVAL 500
+#define CHAT_HIDE_DELAY_MS 2000
 
 void initChat(Chat* chat)
 {
@@ -22,6 +22,8 @@ void initChat(Chat* chat)
     chat->inputLength = 0;
     chat->active = false;
     chat->lastMessageTime = 0;
+    chat->scrollOffset = 0;
+    chat->searching = false;
     chat->currentInput[0] = '\0';
 }
 
@@ -29,27 +31,67 @@ void handleChatEvent(Chat* chat, SDL_Event* e)
 {
     if (e->type == SDL_TEXTINPUT && chat->inputLength < MAX_MESSAGE_LENGTH - 1)
     {
-        strcat(chat->currentInput, e->text.text);
-        chat->inputLength += strlen(e->text.text);
-        chat->lastMessageTime = SDL_GetTicks(); // activity resets timer
+        // Ignore tab character if searching triggered via SDLK_TAB
+        if (strcmp(e->text.text, "\t") != 0)
+        {
+            strcat(chat->currentInput, e->text.text);
+            chat->inputLength += strlen(e->text.text);
+            chat->lastMessageTime = SDL_GetTicks();
+        }
     }
     else if (e->type == SDL_KEYDOWN)
     {
         SDL_Keycode key = e->key.keysym.sym;
+
         if (key == SDLK_BACKSPACE && chat->inputLength > 0)
         {
             chat->currentInput[--chat->inputLength] = '\0';
             chat->lastMessageTime = SDL_GetTicks();
         }
-        else if (key == SDLK_RETURN && chat->inputLength > 0)
+        else if (key == SDLK_RETURN)
         {
-            submitChatMessage(chat);
+            if (chat->searching)
+            {
+                chat->searching = false;
+                chat->inputLength = 0;
+                chat->currentInput[0] = '\0';
+            }
+            else if (chat->inputLength > 0)
+            {
+                submitChatMessage(chat);
+            }
         }
         else if (key == SDLK_ESCAPE)
         {
             chat->active = false;
+            chat->searching = false;
+            chat->currentInput[0] = '\0';
+            chat->inputLength = 0;
+        }
+        else if (key == SDLK_UP)
+        {
+            if (chat->scrollOffset + MAX_VISIBLE_MESSAGES < chat->count)
+                chat->scrollOffset++;
+        }
+        else if (key == SDLK_DOWN)
+        {
+            if (chat->scrollOffset > 0)
+                chat->scrollOffset--;
+        }
+        else if (key == SDLK_TAB)
+        {
+            chat->searching = true;
+            chat->active = true;
+            chat->inputLength = 0;
             chat->currentInput[0] = '\0';
         }
+    }
+    else if (e->type == SDL_MOUSEWHEEL)
+    {
+        if (e->wheel.y > 0 && chat->scrollOffset + MAX_VISIBLE_MESSAGES < chat->count)
+            chat->scrollOffset++;
+        else if (e->wheel.y < 0 && chat->scrollOffset > 0)
+            chat->scrollOffset--;
     }
 }
 
@@ -62,21 +104,41 @@ void submitChatMessage(Chat* chat)
     }
 
     strcpy(chat->messages[chat->count++].text, chat->currentInput);
-    chat->currentInput[0] = '\0';
     chat->inputLength = 0;
+    chat->currentInput[0] = '\0';
+    chat->scrollOffset = 0;
     chat->active = false;
     chat->lastMessageTime = SDL_GetTicks();
+}
+
+bool matchesSearch(const char* query, const char* msg)
+{
+    if (!*query) return true;
+
+    for (; *msg; ++msg)
+    {
+        const char* h = msg;
+        const char* n = query;
+
+        while (*h && *n && tolower((unsigned char)*h) == tolower((unsigned char)*n))
+        {
+            ++h;
+            ++n;
+        }
+
+        if (!*n)
+            return true;
+    }
+
+    return false;
 }
 
 void renderChatMessages(Chat* chat, SDL_Renderer* renderer, TTF_Font* font, int screenHeight)
 {
     Uint32 now = SDL_GetTicks();
 
-    bool shouldRender =
-        chat->active || (chat->count > 0 && (now - chat->lastMessageTime < CHAT_HIDE_DELAY_MS));
-
-    if (!shouldRender)
-        return;
+    bool shouldRender = chat->active || (chat->count > 0 && (now - chat->lastMessageTime < CHAT_HIDE_DELAY_MS));
+    if (!shouldRender) return;
 
     SDL_Color textColor = CHAT_TEXT_COLOR;
 
@@ -89,7 +151,6 @@ void renderChatMessages(Chat* chat, SDL_Renderer* renderer, TTF_Font* font, int 
 
     int fullWidth = textW + CHAT_PADDING_X * 2;
     int fullHeight = textH + CHAT_PADDING_Y * 2;
-
     int baseY = screenHeight - CHAT_MARGIN_Y - fullHeight;
 
     bool showCursor = chat->active && ((now / CURSOR_BLINK_INTERVAL) % 2 == 0);
@@ -120,8 +181,12 @@ void renderChatMessages(Chat* chat, SDL_Renderer* renderer, TTF_Font* font, int 
         baseY -= fullHeight;
     }
 
-    for (int i = chat->count - 1, shown = 0; i >= 0 && shown < MAX_VISIBLE_MESSAGES; --i, ++shown)
+    int shown = 0;
+    for (int i = chat->count - 1 - chat->scrollOffset; i >= 0 && shown < MAX_VISIBLE_MESSAGES; --i)
     {
+        if (chat->searching && !matchesSearch(chat->currentInput, chat->messages[i].text))
+            continue;
+
         SDL_Surface* msgSurf = TTF_RenderText_Blended(font, chat->messages[i].text, textColor);
         SDL_Texture* msgTex = SDL_CreateTextureFromSurface(renderer, msgSurf);
 
@@ -137,9 +202,10 @@ void renderChatMessages(Chat* chat, SDL_Renderer* renderer, TTF_Font* font, int 
         };
         SDL_RenderCopy(renderer, msgTex, NULL, &textDst);
 
-        baseY -= fullHeight;
-
         SDL_FreeSurface(msgSurf);
         SDL_DestroyTexture(msgTex);
+
+        baseY -= fullHeight;
+        shown++;
     }
 }

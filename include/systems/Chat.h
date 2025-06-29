@@ -19,6 +19,8 @@ typedef struct
   char currentInput[MAX_MESSAGE_LENGTH];
   int inputLength;
   bool active;
+  bool searching;
+  int scrollOffset;
   Uint32 lastMessageTime;
 } Chat;
 
