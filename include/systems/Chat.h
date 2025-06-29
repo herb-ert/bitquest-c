@@ -19,6 +19,7 @@ typedef struct
   char currentInput[MAX_MESSAGE_LENGTH];
   int inputLength;
   bool active;
+  Uint32 lastMessageTime;
 } Chat;
 
 void initChat(Chat* chat);
