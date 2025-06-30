@@ -137,26 +137,13 @@ bool matchesSearch(const char* query, const char* msg)
 
 void renderHighlightedText(SDL_Renderer* renderer, TTF_Font* font, const char* msg, const char* query, int x, int y)
 {
-    const char* match = NULL;
+    int dx = x;
+    size_t msgLen = strlen(msg);
     size_t queryLen = strlen(query);
 
-    for (const char* p = msg; *p; ++p)
+    if (queryLen == 0)
     {
-        size_t i = 0;
-        while (p[i] && query[i] &&
-            tolower((unsigned char)p[i]) == tolower((unsigned char)query[i]))
-        {
-            ++i;
-        }
-        if (i == queryLen)
-        {
-            match = p;
-            break;
-        }
-    }
-
-    if (!match || queryLen == 0)
-    {
+        // Render whole message normally
         SDL_Surface* surf = TTF_RenderText_Blended(font, msg, CHAT_TEXT_COLOR);
         SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
         SDL_Rect dst = {x, y, surf->w, surf->h};
@@ -166,46 +153,70 @@ void renderHighlightedText(SDL_Renderer* renderer, TTF_Font* font, const char* m
         return;
     }
 
-    char before[256], matchPart[256], after[256];
-    int prefixLen = match - msg;
-
-    strncpy(before, msg, prefixLen);
-    before[prefixLen] = '\0';
-
-    strncpy(matchPart, match, queryLen);
-    matchPart[queryLen] = '\0';
-
-    strcpy(after, match + queryLen);
-
-    int dx = x;
-
-    if (before[0])
+    const char* p = msg;
+    while (*p)
     {
-        SDL_Surface* surf = TTF_RenderText_Blended(font, before, CHAT_TEXT_COLOR);
+        // Try to find next match
+        const char* match = NULL;
+        for (const char* cur = p; *cur; ++cur)
+        {
+            size_t i = 0;
+            while (cur[i] && query[i] &&
+                tolower((unsigned char)cur[i]) == tolower((unsigned char)query[i]))
+            {
+                ++i;
+            }
+
+            if (i == queryLen)
+            {
+                match = cur;
+                break;
+            }
+        }
+
+        if (!match)
+        {
+            // Render the rest normally
+            SDL_Surface* surf = TTF_RenderText_Blended(font, p, CHAT_TEXT_COLOR);
+            SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+            SDL_Rect dst = {dx, y, surf->w, surf->h};
+            SDL_RenderCopy(renderer, tex, NULL, &dst);
+            SDL_FreeSurface(surf);
+            SDL_DestroyTexture(tex);
+            break;
+        }
+
+        // Render before match
+        if (match > p)
+        {
+            char before[256];
+            size_t len = match - p;
+            strncpy(before, p, len);
+            before[len] = '\0';
+
+            SDL_Surface* surf = TTF_RenderText_Blended(font, before, CHAT_TEXT_COLOR);
+            SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+            SDL_Rect dst = {dx, y, surf->w, surf->h};
+            SDL_RenderCopy(renderer, tex, NULL, &dst);
+            dx += surf->w;
+            SDL_FreeSurface(surf);
+            SDL_DestroyTexture(tex);
+        }
+
+        // Render match in yellow
+        char matchText[256];
+        strncpy(matchText, match, queryLen);
+        matchText[queryLen] = '\0';
+
+        SDL_Surface* surf = TTF_RenderText_Blended(font, matchText, CHAT_HIGHLIGHT_COLOR);
         SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
         SDL_Rect dst = {dx, y, surf->w, surf->h};
         SDL_RenderCopy(renderer, tex, NULL, &dst);
         dx += surf->w;
         SDL_FreeSurface(surf);
         SDL_DestroyTexture(tex);
-    }
 
-    SDL_Surface* surf = TTF_RenderText_Blended(font, matchPart, CHAT_HIGHLIGHT_COLOR);
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-    SDL_Rect dst = {dx, y, surf->w, surf->h};
-    SDL_RenderCopy(renderer, tex, NULL, &dst);
-    dx += surf->w;
-    SDL_FreeSurface(surf);
-    SDL_DestroyTexture(tex);
-
-    if (after[0])
-    {
-        surf = TTF_RenderText_Blended(font, after, CHAT_TEXT_COLOR);
-        tex = SDL_CreateTextureFromSurface(renderer, surf);
-        dst = (SDL_Rect){dx, y, surf->w, surf->h};
-        SDL_RenderCopy(renderer, tex, NULL, &dst);
-        SDL_FreeSurface(surf);
-        SDL_DestroyTexture(tex);
+        p = match + queryLen;
     }
 }
 
